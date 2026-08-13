@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0.0",
+  "visibility": "admin_only_never_send_to_faculty_client",
+  "rubricName": "Faculty Appraisal Rubric - Draft Normalized v1",
+  "note": "Admin must confirm/freeze before use. Broad structure is 100 marks; faculty UI must not display this configuration.",
+  "components": [
+    {
+      "key": "teaching_student_feedback",
+      "label": "Teaching - Student Feedback",
+      "maxMarks": 30,
+      "source": "student_feedback_import",
+      "facultyVisible": false
+    },
+    {
+      "key": "academic_delivery",
+      "label": "Teaching - Academic Delivery",
+      "maxMarks": 15,
+      "source": "faculty_self_review_and_verification",
+      "facultyVisible": false
+    },
+    {
+      "key": "innovation_pedagogy",
+      "label": "Teaching - Innovation in Pedagogy",
+      "maxMarks": 5,
+      "source": "faculty_self_review_and_verification",
+      "facultyVisible": false
+    },
+    {
+      "key": "research_performance",
+      "label": "Research Performance",
+      "maxMarks": 25,
+      "source": "faculty_self_review_and_verification",
+      "facultyVisible": false
+    },
+    {
+      "key": "service_contribution",
+      "label": "Service Contribution",
+      "maxMarks": 25,
+      "source": "faculty_self_review_and_verification",
+      "facultyVisible": false
+    }
+  ],
+  "studentFeedbackBands": [
+    {
+      "min": 4.5,
+      "max": 5.0,
+      "marks": 30
+    },
+    {
+      "min": 4.2,
+      "max": 4.49,
+      "marks": 25
+    },
+    {
+      "min": 4.0,
+      "max": 4.19,
+      "marks": 20
+    },
+    {
+      "min": 3.5,
+      "max": 3.99,
+      "marks": 15
+    },
+    {
+      "min": 0.0,
+      "max": 3.49,
+      "marks": 5
+    }
+  ],
+  "penaltyRules": [
+    {
+      "key": "substitution_sessions",
+      "label": "Substitution sessions penalty",
+      "deductionPerUnit": 1,
+      "maxDeduction": 20,
+      "source": "admin_import",
+      "facultyVisible": false
+    }
+  ],
+  "finalFormula": "sum(active_component_marks) - sum(active_penalties)",
+  "thresholds": {
+    "teachingMinimum": 30,
+    "researchMinimum": 8,
+    "serviceMinimum": 8
+  },
+  "aiAssist": {
+    "enabled": true,
+    "autoFinalizeScores": false,
+    "outputSchema": [
+      "entry_summary",
+      "evidence_quality",
+      "impact_assessment",
+      "rubric_alignment",
+      "risk_flags",
+      "missing_information",
+      "recommended_band",
+      "evaluator_note"
+    ]
+  },
+  "publishingRules": {
+    "requireTotalMarksEquals": 100,
+    "requireSuperAdminFreeze": true,
+    "warnIfRawPolicyTotalsDoNotMatch": true
+  }
+}

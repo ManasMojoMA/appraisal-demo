@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  faculty
+  admin
+  super_admin
+  evaluator
+}
+
+enum CycleStatus {
+  draft
+  open
+  closed
+  evaluation
+  finalized
+  archived
+}
+
+enum SubmissionStatus {
+  draft
+  submitted
+  reopened
+  locked
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  employeeCode String?  @unique
+  role         UserRole @default(faculty)
+  department   String?
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submissions  FacultySubmission[]
+  auditLogs     AuditLog[] @relation("ActorAuditLogs")
+}
+
+model AppraisalCycle {
+  id                   String      @id @default(cuid())
+  name                 String
+  academicYear          String
+  startDate             DateTime
+  endDate               DateTime
+  submissionOpenAt      DateTime
+  submissionDeadlineAt  DateTime
+  status                CycleStatus @default(draft)
+  createdBy             String
+  createdAt             DateTime    @default(now())
+
+  formTemplates         FormTemplate[]
+  rubricVersions        RubricVersion[]
+  submissions           FacultySubmission[]
+}
+
+model FormTemplate {
+  id           String   @id @default(cuid())
+  cycleId      String
+  version      Int
+  title        String
+  description  String
+  instructions Json
+  schemaJson   Json
+  isActive     Boolean  @default(false)
+  createdBy    String
+  createdAt    DateTime @default(now())
+
+  cycle        AppraisalCycle @relation(fields: [cycleId], references: [id])
+  submissions  FacultySubmission[]
+
+  @@unique([cycleId, version])
+}
+
+model FacultySubmission {
+  id             String           @id @default(cuid())
+  cycleId         String
+  facultyId       String
+  formTemplateId  String
+  status          SubmissionStatus @default(draft)
+  submittedAt     DateTime?
+  reopenedAt      DateTime?
+  reopenedBy      String?
+  reopenReason    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  cycle           AppraisalCycle @relation(fields: [cycleId], references: [id])
+  faculty         User           @relation(fields: [facultyId], references: [id])
+  formTemplate    FormTemplate   @relation(fields: [formTemplateId], references: [id])
+  entries         SubmissionEntry[]
+
+  @@unique([cycleId, facultyId])
+}
+
+model SubmissionEntry {
+  id                    String   @id @default(cuid())
+  submissionId           String
+  categoryKey            String
+  entryIndex             Int
+  dataJson               Json
+  evidenceJson           Json?
+  verificationStatus     String   @default("not_reviewed")
+  adminVerificationNote  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  submission             FacultySubmission @relation(fields: [submissionId], references: [id])
+  evidenceFiles           EvidenceFile[]
+
+  @@index([submissionId, categoryKey])
+}
+
+model EvidenceFile {
+  id                String   @id @default(cuid())
+  submissionEntryId String
+  fileUrl            String
+  fileName           String
+  fileType           String
+  fileSize           Int
+  uploadedBy         String
+  uploadedAt         DateTime @default(now())
+
+  entry              SubmissionEntry @relation(fields: [submissionEntryId], references: [id])
+}
+
+model StudentFeedbackImportBatch {
+  id               String   @id @default(cuid())
+  cycleId           String
+  fileName          String
+  importedBy        String
+  importedAt        DateTime @default(now())
+  status            String
+  errorSummaryJson  Json?
+
+  records           StudentFeedbackRecord[]
+}
+
+model StudentFeedbackRecord {
+  id              String   @id @default(cuid())
+  importBatchId    String
+  cycleId          String
+  facultyId        String?
+  facultyEmail     String
+  facultyName      String
+  programme        String
+  semesterOrTerm   String
+  courseCode       String?
+  courseName       String
+  section          String
+  feedbackRound    String
+  averageScore5    Float
+  responseCount    Int
+  convertedMarks   Float?
+  conversionBand   String?
+  rawRowJson       Json
+
+  batch            StudentFeedbackImportBatch @relation(fields: [importBatchId], references: [id])
+
+  @@index([cycleId, facultyId])
+  @@index([facultyEmail])
+}
+
+model RubricVersion {
+  id          String   @id @default(cuid())
+  cycleId     String
+  version     Int
+  name        String
+  configJson  Json
+  isActive    Boolean  @default(false)
+  isFrozen    Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  cycle       AppraisalCycle @relation(fields: [cycleId], references: [id])
+  evaluations FacultyEvaluation[]
+
+  @@unique([cycleId, version])
+}
+
+model FacultyEvaluation {
+  id                            String   @id @default(cuid())
+  cycleId                        String
+  rubricVersionId                String
+  facultyId                      String
+  submissionId                   String
+  teachingStudentFeedbackMarks    Float?
+  academicDeliveryMarks           Float?
+  innovationMarks                 Float?
+  researchMarks                   Float?
+  serviceMarks                    Float?
+  penaltyMarks                    Float?  @default(0)
+  finalScore                      Float?
+  aiSummaryJson                   Json?
+  evaluatorNotes                  String?
+  deanModerationNotes             String?
+  finalStatus                     String   @default("draft")
+  finalizedBy                     String?
+  finalizedAt                     DateTime?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  rubricVersion                   RubricVersion @relation(fields: [rubricVersionId], references: [id])
+
+  @@index([cycleId, facultyId])
+}
+
+model DeadlineOverride {
+  id                  String   @id @default(cuid())
+  cycleId              String
+  facultyId            String
+  overrideDeadlineAt   DateTime
+  reason               String
+  approvedBy           String
+  createdAt            DateTime @default(now())
+
+  @@index([cycleId, facultyId])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorUserId    String
+  actionType     String
+  entityType     String
+  entityId       String?
+  oldValueJson   Json?
+  newValueJson   Json?
+  reason         String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  actor          User @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}

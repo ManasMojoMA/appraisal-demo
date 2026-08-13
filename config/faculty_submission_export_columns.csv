@@ -1,0 +1,24 @@
+column_name,description,visibility
+faculty_id,Internal faculty ID,admin_export
+faculty_email,Faculty email,admin_export
+faculty_name,Faculty name,admin_export
+department,Department/school,admin_export
+cycle_id,Appraisal cycle,admin_export
+form_template_version,Faculty form version used,admin_export
+submission_status,draft/submitted/reopened/locked,admin_export
+submitted_at,Final submission timestamp,admin_export
+category_key,Category of self-review entry,admin_export
+entry_index,Entry number inside category,admin_export
+field_key,Field key,admin_export
+field_label,Field label shown to faculty,admin_export
+field_value,Faculty response,admin_export
+evidence_link,Evidence URL/file path,admin_export
+verification_status,Internal evidence verification status,internal_only
+student_feedback_marks,Imported student feedback marks,internal_only
+academic_delivery_marks,Internal academic delivery marks,internal_only
+innovation_marks,Internal innovation marks,internal_only
+research_marks,Internal research marks,internal_only
+service_marks,Internal service marks,internal_only
+penalty_marks,Internal penalty deduction,internal_only
+final_score,Final score,internal_only
+rubric_version,Hidden rubric version,internal_only

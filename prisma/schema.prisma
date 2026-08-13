@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  faculty
+  admin
+  super_admin
+  evaluator
+}
+
+enum CycleStatus {
+  draft
+  open
+  closed
+  evaluation
+  finalized
+  archived
+}
+
+enum SubmissionStatus {
+  draft
+  submitted
+  reopened
+  locked
+}
+
+model User {
+  id           String   @id @default(cuid())
+  supabaseId   String?  @unique @map("supabase_id")
+  name         String
+  email        String   @unique
+  employeeCode String?  @unique @map("employee_code")
+  role         UserRole @default(faculty)
+  department   String?
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  submissions       FacultySubmission[]
+  auditLogs         AuditLog[]          @relation("ActorAuditLogs")
+  FacultyEvaluation FacultyEvaluation[]
+
+  @@map("users")
+}
+
+model AppraisalCycle {
+  id                   String      @id @default(cuid())
+  name                 String
+  academicYear         String      @map("academic_year")
+  startDate            DateTime    @map("start_date")
+  endDate              DateTime    @map("end_date")
+  submissionOpenAt     DateTime    @map("submission_open_at")
+  submissionDeadlineAt DateTime    @map("submission_deadline_at")
+  status               CycleStatus @default(draft)
+  createdBy            String      @map("created_by")
+  createdAt            DateTime    @default(now()) @map("created_at")
+
+  formTemplates     FormTemplate[]
+  rubricVersions    RubricVersion[]
+  submissions       FacultySubmission[]
+  deadlineOverrides DeadlineOverride[]
+  FacultyEvaluation FacultyEvaluation[]
+
+  @@map("appraisal_cycles")
+}
+
+model FormTemplate {
+  id            String   @id @default(cuid())
+  cycleId       String   @map("cycle_id")
+  version       Int
+  title         String
+  description   String
+  instructions  Json
+  schemaJson    Json     @map("schema_json")
+  updatedSchema Json?    @map("updated_schema")
+  isActive      Boolean  @default(false) @map("is_active")
+  createdBy     String   @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  cycle       AppraisalCycle      @relation(fields: [cycleId], references: [id])
+  submissions FacultySubmission[]
+
+  @@unique([cycleId, version])
+  @@map("form_templates")
+}
+
+model FacultySubmission {
+  id             String           @id @default(cuid())
+  cycleId        String           @map("cycle_id")
+  facultyId      String           @map("faculty_id")
+  formTemplateId String           @map("form_template_id")
+  status         SubmissionStatus @default(draft)
+  submittedAt    DateTime?        @map("submitted_at")
+  reopenedAt     DateTime?        @map("reopened_at")
+  reopenedBy     String?          @map("reopened_by")
+  reopenReason   String?          @map("reopen_reason")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  cycle        AppraisalCycle     @relation(fields: [cycleId], references: [id])
+  faculty      User               @relation(fields: [facultyId], references: [id])
+  formTemplate FormTemplate       @relation(fields: [formTemplateId], references: [id])
+  entries      SubmissionEntry[]
+  evaluation   FacultyEvaluation?
+
+  @@unique([cycleId, facultyId])
+  @@map("faculty_submissions")
+}
+
+model SubmissionEntry {
+  id                    String   @id @default(cuid())
+  submissionId          String   @map("submission_id")
+  categoryKey           String   @map("category_key")
+  entryIndex            Int      @map("entry_index")
+  dataJson              Json     @map("data_json")
+  evidenceJson          Json?    @map("evidence_json")
+  verificationStatus    String   @default("not_reviewed") @map("verification_status")
+  adminVerificationNote String?  @map("admin_verification_note")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  submission    FacultySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  evidenceFiles EvidenceFile[]
+
+  @@index([submissionId, categoryKey])
+  @@map("submission_entries")
+}
+
+model EvidenceFile {
+  id                String   @id @default(cuid())
+  submissionEntryId String   @map("submission_entry_id")
+  fileUrl           String   @map("file_url")
+  fileName          String   @map("file_name")
+  fileType          String   @map("file_type")
+  fileSize          Int      @map("file_size")
+  uploadedBy        String   @map("uploaded_by")
+  uploadedAt        DateTime @default(now()) @map("uploaded_at")
+
+  entry SubmissionEntry @relation(fields: [submissionEntryId], references: [id], onDelete: Cascade)
+
+  @@map("evidence_files")
+}
+
+model StudentFeedbackImportBatch {
+  id               String   @id @default(cuid())
+  cycleId          String   @map("cycle_id")
+  fileName         String   @map("file_name")
+  importedBy       String   @map("imported_by")
+  importedAt       DateTime @default(now()) @map("imported_at")
+  status           String
+  errorSummaryJson Json?    @map("error_summary_json")
+
+  records StudentFeedbackRecord[]
+
+  @@map("student_feedback_import_batches")
+}
+
+model StudentFeedbackRecord {
+  id             String  @id @default(cuid())
+  importBatchId  String  @map("import_batch_id")
+  cycleId        String  @map("cycle_id")
+  facultyId      String? @map("faculty_id")
+  facultyEmail   String  @map("faculty_email")
+  facultyName    String  @map("faculty_name")
+  programme      String
+  semesterOrTerm String  @map("semester_or_term")
+  courseCode     String? @map("course_code")
+  courseName     String  @map("course_name")
+  section        String
+  feedbackRound  String  @map("feedback_round")
+  averageScore5  Float   @map("average_score_5")
+  responseCount  Int     @map("response_count")
+  convertedMarks Float?  @map("converted_marks")
+  conversionBand String? @map("conversion_band")
+  rawRowJson     Json    @map("raw_row_json")
+
+  batch StudentFeedbackImportBatch @relation(fields: [importBatchId], references: [id])
+
+  @@index([cycleId, facultyId])
+  @@index([facultyEmail])
+  @@map("student_feedback_records")
+}
+
+model RubricVersion {
+  id         String   @id @default(cuid())
+  cycleId    String   @map("cycle_id")
+  version    Int
+  name       String
+  configJson Json     @map("config_json")
+  isActive   Boolean  @default(false) @map("is_active")
+  isFrozen   Boolean  @default(false) @map("is_frozen")
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  cycle       AppraisalCycle      @relation(fields: [cycleId], references: [id])
+  evaluations FacultyEvaluation[]
+
+  @@unique([cycleId, version])
+  @@map("rubric_versions")
+}
+
+model FacultyEvaluation {
+  id                           String    @id @default(cuid())
+  cycleId                      String    @map("cycle_id")
+  rubricVersionId              String    @map("rubric_version_id")
+  facultyId                    String    @map("faculty_id")
+  submissionId                 String    @unique @map("submission_id")
+  teachingStudentFeedbackMarks Float?    @map("teaching_student_feedback_marks")
+  academicDeliveryMarks        Float?    @map("academic_delivery_marks")
+  innovationMarks              Float?    @map("innovation_marks")
+  researchMarks                Float?    @map("research_marks")
+  serviceMarks                 Float?    @map("service_marks")
+  penaltyMarks                 Float?    @default(0) @map("penalty_marks")
+  finalScore                   Float?    @map("final_score")
+  aiSummaryJson                Json?     @map("ai_summary_json")
+  evaluatorNotes               String?   @map("evaluator_notes")
+  deanModerationNotes          String?   @map("dean_moderation_notes")
+  finalStatus                  String    @default("draft") @map("final_status")
+  finalizedBy                  String?   @map("finalized_by")
+  finalizedAt                  DateTime? @map("finalized_at")
+  createdAt                    DateTime  @default(now()) @map("created_at")
+  updatedAt                    DateTime  @updatedAt @map("updated_at")
+
+  rubricVersion RubricVersion     @relation(fields: [rubricVersionId], references: [id])
+  cycle         AppraisalCycle    @relation(fields: [cycleId], references: [id])
+  faculty       User              @relation(fields: [facultyId], references: [id])
+  submission    FacultySubmission @relation(fields: [submissionId], references: [id])
+
+  @@index([cycleId, facultyId])
+  @@map("faculty_evaluations")
+}
+
+model DeadlineOverride {
+  id                 String   @id @default(cuid())
+  cycleId            String   @map("cycle_id")
+  facultyId          String   @map("faculty_id")
+  overrideDeadlineAt DateTime @map("override_deadline_at")
+  reason             String
+  approvedBy         String   @map("approved_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  cycle AppraisalCycle @relation(fields: [cycleId], references: [id])
+
+  @@index([cycleId, facultyId])
+  @@map("deadline_overrides")
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String   @map("actor_user_id")
+  actionType   String   @map("action_type")
+  entityType   String   @map("entity_type")
+  entityId     String?  @map("entity_id")
+  oldValueJson Json?    @map("old_value_json")
+  newValueJson Json?    @map("new_value_json")
+  reason       String?
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  actor User @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}

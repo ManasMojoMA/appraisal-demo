@@ -1,0 +1,391 @@
+{
+  "schemaVersion": "1.0.0",
+  "visibility": "faculty_visible_only",
+  "formTitle": "Faculty Annual Self-Review",
+  "formDescription": "This self-review form captures annual contributions across service, research, academic delivery, and teaching innovation. Please provide clear, concise, evidence-supported information.",
+  "instructions": [
+    "Enable only those categories where you have contributions to report.",
+    "Once a category is enabled, at least one entry must be completed.",
+    "You may add multiple entries under each category.",
+    "Every added entry must be fully completed before submission.",
+    "If an additional entry was added by mistake, delete it before submitting.",
+    "Evidence links should be accessible to the Program Office.",
+    "Final submission cannot be edited unless reopened by an authorized admin."
+  ],
+  "categoryActivationRule": {
+    "enabledCategoryMinEntries": 1,
+    "autoCreateFirstEntry": true,
+    "allAddedEntriesMustBeComplete": true,
+    "allowDisableCategoryBeforeSubmission": true
+  },
+  "categories": [
+    {
+      "key": "service_contribution",
+      "label": "Service Contribution",
+      "description": "Report responsibilities, institutional roles, industry engagement, initiatives, faculty development contribution, or other service activities undertaken during the appraisal period.",
+      "canBeEnabledByFaculty": true,
+      "minEntriesWhenEnabled": 1,
+      "fields": [
+        {
+          "key": "position_of_responsibility",
+          "label": "What was your position of responsibility?",
+          "type": "text",
+          "required": true,
+          "placeholder": "Example: Committee Coordinator, Faculty Mentor"
+        },
+        {
+          "key": "service_contribution_type",
+          "label": "Service contribution type",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Administrative Role",
+            "Industry Engagement",
+            "Institutional Initiative",
+            "Faculty Development",
+            "Other"
+          ]
+        },
+        {
+          "key": "task",
+          "label": "What was your task/responsibility?",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "action_taken",
+          "label": "What action did you take?",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "result_impact",
+          "label": "What was the result/impact of your action?",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "stakeholders_benefited",
+          "label": "Stakeholders benefited",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "Students",
+            "Faculty",
+            "School/Department",
+            "University",
+            "Industry Partner",
+            "Alumni",
+            "Community",
+            "Other"
+          ]
+        },
+        {
+          "key": "start_date",
+          "label": "Start date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "end_date",
+          "label": "End date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "key": "evidence_link",
+          "label": "Evidence link/upload",
+          "type": "evidence",
+          "required": true
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "key": "research_performance",
+      "label": "Research Performance",
+      "description": "Report research output completed, published, accepted, filed, presented, or funded during the appraisal period.",
+      "canBeEnabledByFaculty": true,
+      "minEntriesWhenEnabled": 1,
+      "fields": [
+        {
+          "key": "research_type",
+          "label": "Type of research",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Journal Article",
+            "Book Chapter",
+            "Book",
+            "Case Study",
+            "Conference Paper",
+            "Funded Project",
+            "Patent",
+            "Industry Research",
+            "Other"
+          ]
+        },
+        {
+          "key": "research_title",
+          "label": "Title of research",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "publication_date",
+          "label": "Publication/completion date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "publication_link",
+          "label": "Link of publication",
+          "type": "url",
+          "required": false
+        },
+        {
+          "key": "research_document_link",
+          "label": "Upload your research document/evidence link",
+          "type": "evidence",
+          "required": true
+        },
+        {
+          "key": "publication_details",
+          "label": "Journal/publisher/conference/project/patent details",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "identifier",
+          "label": "DOI/ISBN/application number, if applicable",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "co_authors",
+          "label": "Co-authors/collaborators",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "status",
+          "label": "Current status",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Published",
+            "Accepted",
+            "Presented",
+            "Filed",
+            "Completed",
+            "Ongoing",
+            "Submitted"
+          ]
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "key": "academic_delivery",
+      "label": "Academic Delivery",
+      "description": "Report structured course delivery, course planning, syllabus completion, LMS usage, lesson planning, case integration, and timely academic support provided to students.",
+      "canBeEnabledByFaculty": true,
+      "minEntriesWhenEnabled": 1,
+      "fields": [
+        {
+          "key": "course_name",
+          "label": "Course name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "course_code",
+          "label": "Course code",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "programme",
+          "label": "Programme",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "semester_term",
+          "label": "Semester/term",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "sections_taught",
+          "label": "Section(s) taught",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "course_outline_shared",
+          "label": "Course outline/session plan shared",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Yes",
+            "No",
+            "Partially"
+          ]
+        },
+        {
+          "key": "syllabus_completion_status",
+          "label": "Syllabus completion status",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Completed",
+            "Mostly Completed",
+            "Partially Completed",
+            "Not Completed"
+          ]
+        },
+        {
+          "key": "syllabus_completion_percentage",
+          "label": "Syllabus completion percentage",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "lms_usage",
+          "label": "LMS usage/resources uploaded",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "lesson_planning_evidence",
+          "label": "Lesson planning evidence",
+          "type": "evidence",
+          "required": true
+        },
+        {
+          "key": "case_integration",
+          "label": "Case/examples/application integration",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "assessment_feedback_timeliness",
+          "label": "Assessment and feedback timeliness",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "student_support",
+          "label": "Student support/remedial action",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "evidence_link",
+          "label": "Evidence link/upload",
+          "type": "evidence",
+          "required": true
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "key": "innovation_pedagogy",
+      "label": "Innovation in Pedagogy",
+      "description": "Report innovative teaching methods or learning experiences such as live projects, guest sessions, experiential learning, simulations, industry-linked activities, or AI-enabled learning.",
+      "canBeEnabledByFaculty": true,
+      "minEntriesWhenEnabled": 1,
+      "fields": [
+        {
+          "key": "innovation_type",
+          "label": "Innovation type",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Live Project",
+            "Guest Session",
+            "Experiential Learning",
+            "Simulation",
+            "Case Method",
+            "Field Activity",
+            "AI-enabled Learning",
+            "Industry-linked Activity",
+            "Other"
+          ]
+        },
+        {
+          "key": "activity_title",
+          "label": "Activity/title",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "course_context",
+          "label": "Course/programme/section where implemented",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "method_description",
+          "label": "Description of method used",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "date_range",
+          "label": "Date/range",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "student_participation",
+          "label": "Student participation level",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "industry_partner",
+          "label": "Industry/external partner, if any",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "learning_impact",
+          "label": "Learning outcome/impact",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "evidence_link",
+          "label": "Evidence link/upload",
+          "type": "evidence",
+          "required": true
+        },
+        {
+          "key": "remarks",
+          "label": "Remarks",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

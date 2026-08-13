@@ -1,0 +1,2 @@
+faculty_id,faculty_email,faculty_name,appraisal_cycle,programme,semester_or_term,course_code,course_name,section,feedback_round,average_score_5,response_count,source_file
+FAC001,faculty@example.edu,Faculty Name,2025-26,MBA,Sem 2,MBA201,Marketing Management,MBA-A,End-course,4.45,55,student_feedback_sem2.csv
