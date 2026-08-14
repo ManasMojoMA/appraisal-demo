@@ -1,0 +1,7 @@
+# vercel deploy from the CLI does not honour .gitignore, so without this the
+# local .env — which holds the Neon connection string — is uploaded into the
+# build container. The same values are already set as project env vars.
+.env
+.env.*
+node_modules
+.next
