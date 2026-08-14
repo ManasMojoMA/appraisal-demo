@@ -67,7 +67,7 @@ export interface DemoRole {
  * Next.js only inlines statically analysable `process.env.X` member expressions,
  * so each variable must be written out rather than built from a loop.
  */
-export const DEMO_ROLES: DemoRole[] = [
+const ALL_DEMO_ROLES: DemoRole[] = [
   {
     key: "faculty",
     label: "Explore as Faculty",
@@ -100,4 +100,9 @@ export const DEMO_ROLES: DemoRole[] = [
     password: process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD || "",
     role: "super_admin",
   },
-].filter((r) => r.email && r.password);
+];
+
+/** A role with no password configured would render a button that cannot sign in. */
+export const DEMO_ROLES: DemoRole[] = ALL_DEMO_ROLES.filter(
+  (r) => r.email && r.password,
+);
