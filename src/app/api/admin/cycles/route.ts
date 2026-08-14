@@ -5,7 +5,13 @@ import { getSessionUser, writeAuditLog } from "@/lib/audit-logger";
 
 export async function GET() {
   try {
+    // "base-cycle" is a system container, created on demand to hold the default
+    // rubrics and form templates — it is not an appraisal anyone takes part in.
+    // Listing it alongside real cycles put a permanently-draft row in the table
+    // with dates unrelated to anything, which reads as a bug rather than as
+    // scaffolding.
     const cycles = await prisma.appraisalCycle.findMany({
+      where: { id: { not: "base-cycle" } },
       orderBy: { createdAt: "desc" },
       include: {
         formTemplates: true,

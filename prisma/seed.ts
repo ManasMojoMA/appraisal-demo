@@ -180,20 +180,31 @@ async function main() {
   // Open, with the deadline ahead, so the Faculty seat can actually submit
   // rather than landing on a closed cycle with nothing to do.
   const now = new Date();
+
+  // The academic year runs July to June. Derive the label from the dates rather
+  // than writing it out: the first version of this seed hardcoded "2025–26" next
+  // to dates computed from new Date(), so the moment the calendar rolled over,
+  // a cycle labelled 2025–26 was showing a July 2026 – June 2027 timeline.
+  const acadStart = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+  const academicYear = `${acadStart}–${String(acadStart + 1).slice(2)}`;
+
+  // Built in UTC on purpose. new Date(y, 6, 1) is midnight *local*, which in
+  // IST is 18:30 the previous day in UTC — so the timeline rendered as
+  // "Jun 30 – Jun 29" instead of "Jul 1 – Jun 30" depending on who was looking.
+  const cycleFields = {
+    name: `Annual Appraisal ${academicYear}`,
+    academicYear,
+    startDate: new Date(Date.UTC(acadStart, 6, 1)),
+    endDate: new Date(Date.UTC(acadStart + 1, 5, 30)),
+    submissionOpenAt: new Date(now.getTime() - 21 * 864e5),
+    submissionDeadlineAt: new Date(now.getTime() + 21 * 864e5),
+    status: "open" as const,
+  };
+
   const cycle = await prisma.appraisalCycle.upsert({
-    where: { id: "demo-cycle-2025-26" },
-    update: { status: "open" },
-    create: {
-      id: "demo-cycle-2025-26",
-      name: "Annual Appraisal 2025–26",
-      academicYear: "2025–26",
-      startDate: new Date(now.getFullYear(), 6, 1),
-      endDate: new Date(now.getFullYear() + 1, 5, 30),
-      submissionOpenAt: new Date(now.getTime() - 21 * 864e5),
-      submissionDeadlineAt: new Date(now.getTime() + 21 * 864e5),
-      status: "open",
-      createdBy: users.ADMIN.id,
-    },
+    where: { id: "demo-cycle" },
+    update: cycleFields,
+    create: { id: "demo-cycle", ...cycleFields, createdBy: users.ADMIN.id },
   });
 
   const template = await prisma.formTemplate.upsert({
