@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { ShieldAlert, Eye, EyeOff, ChevronDown, Loader2 } from "lucide-react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/client";
+import { DEMO_MODE, DEMO_ROLES } from "@/config/app";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -56,10 +57,42 @@ function LoginContent() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState("");
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
+
+  /** Which role button is mid-sign-in, so only that one shows a spinner. */
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+
+  /**
+   * One-click entry for a given role.
+   *
+   * This portal is the one where roles matter most — hidden rubrics and dean
+   * moderation only make sense seen from four sides — so a visitor needs to be
+   * able to switch seats without ever being handed a credential to type.
+   */
+  const handleDemoSignIn = async (roleKey: string) => {
+    const role = DEMO_ROLES.find((r) => r.key === roleKey);
+    if (!role) return;
+
+    setDemoLoading(roleKey);
+    setError("");
+    setResetSuccess("");
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: role.email,
+      password: role.password,
+    });
+
+    if (error) {
+      // Never surface the provider's message here: it distinguishes "no such
+      // user" from "wrong password", which is free reconnaissance on a login
+      // page anyone can reach.
+      setError("Could not open the demo account. Please try another role.");
+      setDemoLoading(null);
+      return;
+    }
+
+    router.push("/auth/post-login");
+  };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
@@ -190,7 +223,9 @@ function LoginContent() {
               Welcome to the Portal
             </h2>
             <p className="text-sm text-[#6B7280] mt-2">
-              Sign in with your university Google account to access your appraisal forms.
+              {DEMO_MODE
+                ? "Pick a role to look around. Nothing to type, nothing to sign up for."
+                : "Sign in with your institutional Google account to access your appraisal forms."}
             </p>
           </div>
 
@@ -205,6 +240,57 @@ function LoginContent() {
             <Alert className="mb-6 border-green-300 bg-green-50 text-green-800">
               <AlertDescription>{resetSuccess}</AlertDescription>
             </Alert>
+          )}
+
+          {/* One button per role. The whole point of this portal is that the same
+              cycle looks different from four seats, so a single shared login
+              would hide the feature rather than demonstrate it. No credentials
+              are published anywhere — the buttons sign in behind the scenes. */}
+          {DEMO_MODE && DEMO_ROLES.length > 0 && (
+            <div className="mb-8">
+              <div className="grid gap-2.5">
+                {DEMO_ROLES.map((role) => (
+                  <button
+                    key={role.key}
+                    type="button"
+                    onClick={() => handleDemoSignIn(role.key)}
+                    disabled={demoLoading !== null}
+                    className="group w-full text-left rounded-xl border border-gray-200 bg-white px-4 py-3 transition-all hover:border-[#3EBDFA] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#111827]">
+                          {role.label}
+                        </p>
+                        <p className="text-xs text-[#6B7280] mt-0.5 leading-snug">
+                          {role.blurb}
+                        </p>
+                      </div>
+                      {demoLoading === role.key ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#3EBDFA]" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-gray-300 transition-colors group-hover:text-[#3EBDFA]" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-[11px] text-[#6B7280]">
+                Every record behind these accounts is invented. Edit and delete
+                whatever you like — account management is the only thing switched off.
+              </p>
+
+              <div className="relative mt-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-3 text-[11px] uppercase tracking-wider text-gray-400">
+                    or sign in normally
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="space-y-4">

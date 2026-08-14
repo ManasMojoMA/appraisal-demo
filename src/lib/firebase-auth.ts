@@ -130,6 +130,28 @@ export async function refreshIdToken(refreshToken: string): Promise<AuthTokens |
   }
 }
 
+/**
+ * Provision an account.
+ *
+ * accounts:signUp needs only the public API key, so admins can be created
+ * without a service account. It returns tokens for the new user, which are
+ * discarded here — creating an account must not sign the caller out of their
+ * own session.
+ *
+ * Throws EMAIL_EXISTS when the address is taken, which callers should treat as
+ * a recoverable conflict rather than a failure.
+ */
+export async function createAuthUser(
+  email: string,
+  password: string,
+): Promise<{ id: string }> {
+  const r = await call<{ localId: string }>(
+    `${IDENTITY}/accounts:signUp?key=${API_KEY}`,
+    { email, password, returnSecureToken: false },
+  );
+  return { id: r.localId };
+}
+
 export async function sendPasswordReset(email: string): Promise<void> {
   await call(`${IDENTITY}/accounts:sendOobCode?key=${API_KEY}`, {
     requestType: "PASSWORD_RESET",

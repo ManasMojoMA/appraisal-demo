@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { demoBlock } from "@/lib/demo-guard";
 import { writeAuditLog } from "@/lib/audit-logger";
 
 export async function GET(request: NextRequest) {
@@ -27,19 +27,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. Verify admin role
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch { }
-          },
-        },
-      }
-    );
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -48,6 +36,9 @@ export async function POST(request: NextRequest) {
     if (!dbAdmin || (dbAdmin.role !== "admin" && dbAdmin.role !== "super_admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const blocked = demoBlock("Creating faculty accounts");
+    if (blocked) return blocked;
 
     const body = await request.json();
     const { name, email, employeeCode, department } = body;

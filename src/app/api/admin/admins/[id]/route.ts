@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { writeAuditLog } from "@/lib/audit-logger";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+import { demoBlock } from "@/lib/demo-guard";
 
 export async function DELETE(
   request: NextRequest,
@@ -19,25 +12,7 @@ export async function DELETE(
     const { id } = await context.params;
 
     // 1. Verify current user is super_admin
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {}
-          },
-        },
-      }
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -56,6 +31,9 @@ export async function DELETE(
       );
     }
 
+    const blocked = demoBlock("Deleting accounts");
+    if (blocked) return blocked;
+
     // 2. Prevent deleting yourself
     if (currentAdmin.id === id) {
       return NextResponse.json(
@@ -70,16 +48,14 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 4. Delete from Supabase Auth if supabaseId exists
-    if (targetUser.supabaseId) {
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-        targetUser.supabaseId
-      );
-      if (authError) {
-        console.error("Supabase Auth delete error:", authError);
-        // Continue with Prisma deletion even if Supabase fails
-      }
-    }
+    // 4. The Firebase auth account is deliberately left in place.
+    //
+    // Removing another user's Firebase account needs a service account, which
+    // this deployment intentionally does not carry — see src/lib/firebase-auth.ts.
+    // The Prisma row is the authorisation record, so deleting it removes all
+    // access; the orphaned auth account can sign in but resolves to no user and
+    // is rejected by every route. An operator running this for real should
+    // remove it in the Firebase console, or wire up the Admin SDK.
 
     // 5. Delete from Prisma (clean up relations first to prevent foreign key errors)
     await prisma.$transaction([

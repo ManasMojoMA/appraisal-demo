@@ -1,67 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
+import { sendPasswordReset } from "@/lib/firebase-auth";
+import { demoBlock } from "@/lib/demo-guard";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
-
-export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+/**
+ * Send a faculty member a link to set their own password.
+ *
+ * Two changes from the original beyond the provider swap:
+ *
+ * 1. It had no authentication whatsoever. Anyone who found the URL could POST a
+ *    faculty id and make the app send mail on their behalf — an open relay
+ *    pointed at real addresses, and an account-enumeration oracle besides, since
+ *    a valid id answered differently from an invalid one.
+ * 2. Supabase's generateLink/inviteUserByEmail are replaced by Firebase's
+ *    password-reset email, which needs only the public API key.
+ */
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
   try {
     const { id } = await context.params;
 
-    // Get faculty from DB
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const actor = await prisma.user.findFirst({ where: { email: user.email } });
+    if (!actor || (actor.role !== "admin" && actor.role !== "super_admin")) {
+      return NextResponse.json({ error: "Admin only" }, { status: 403 });
+    }
+
+    // Frozen in the demo: this sends real mail to whatever address is on the
+    // record, and a visitor can edit that address. Placed after the authz checks
+    // so an anonymous caller still gets 401.
+    const blocked = demoBlock("Sending credentials");
+    if (blocked) return blocked;
+
     const faculty = await prisma.user.findUnique({ where: { id } });
     if (!faculty) {
       return NextResponse.json({ error: "Faculty not found" }, { status: 404 });
     }
 
-    if (!faculty.supabaseId) {
-      return NextResponse.json({ error: "Faculty has no auth account" }, { status: 400 });
-    }
+    await sendPasswordReset(faculty.email);
 
-    // Use Supabase Admin to send a password reset email.
-    // This is the most reliable built-in method — Supabase handles the actual
-    // email delivery via its configured SMTP (default: Supabase's own mail service).
-    // The faculty will receive a "Reset Password" link which they can use to set
-    // their own password on first login.
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: faculty.email,
-      options: {
-        redirectTo: `${process.env.APP_URL || "http://localhost:3000"}/login`,
-      },
+    return NextResponse.json({
+      success: true,
+      message:
+        "Sent. They will receive a link to set their own password and can then sign in.",
     });
-
-    if (error) {
-      console.error("Generate link error:", error);
-      
-      // Fallback: try inviteUserByEmail
-      const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(faculty.email, {
-        redirectTo: `${process.env.APP_URL || "http://localhost:3000"}/login`,
-      });
-
-      if (inviteError) {
-        console.error("Invite error:", inviteError);
-        return NextResponse.json({ 
-          error: `Could not send email: ${inviteError.message}. The account is created — faculty can log in with the password set during onboarding, or use 'Forgot Password' on the login page.` 
-        }, { status: 500 });
-      }
-
-      return NextResponse.json({ 
-        success: true, 
-        message: "Invitation email sent. Faculty will receive a link to set up their account." 
-      });
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: "Login link has been generated. Faculty will receive an email with instructions to access the portal." 
-    });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Send credentials error:", error);
-    return NextResponse.json({ error: error.message || "Failed to send credentials" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not send the email" },
+      { status: 500 },
+    );
   }
 }

@@ -111,7 +111,9 @@ export async function createClient() {
         return { error: null };
       },
 
-      async resetPasswordForEmail(email: string) {
+      async resetPasswordForEmail(email: string, _opts?: { redirectTo?: string }) {
+        // redirectTo is accepted and ignored: Firebase serves the reset page on
+        // its own domain, so there is no callback of ours to come back to.
         try {
           await sendPasswordReset(email);
         } catch {

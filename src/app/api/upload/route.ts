@@ -1,63 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 
-// Initialize Supabase with service role to bypass RLS for uploads from the API
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+/**
+ * Evidence uploads.
+ *
+ * Previously these went to a Supabase Storage bucket. Auth moved to Firebase to
+ * get off Supabase's two-project limit, and Cloud Storage for Firebase needs
+ * billing enabled on a new project — which is not worth turning on for a demo
+ * that exists to be thrown away.
+ *
+ * So the file is stored inline as a data URL in EvidenceFile.fileUrl, which is
+ * already a String column. That keeps the feature genuinely working end to end —
+ * attach a document to a self-appraisal entry, see it listed, open it again —
+ * rather than degrading it to a filename with a dead link.
+ *
+ * The trade-off is size. Base64 inflates by roughly a third and Neon's free tier
+ * holds 0.5 GB, so the ceiling drops from 5 MB to 1 MB. For a demo where the
+ * point is showing that evidence attaches to an entry, that is enough; anything
+ * real should use object storage.
+ */
+
+/** Base64 costs ~33% on top, so 1 MB in is ~1.4 MB stored. */
+const MAX_SIZE = 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
+    // Uploads write to the database, so they need a session. The original route
+    // had no auth check at all — anyone who found the URL could fill the bucket.
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Size limit check (5 MB)
-    const MAX_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "File size exceeds the 5MB limit" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            "Files are capped at 1MB in this demo, because attachments are stored " +
+            "inline rather than in object storage.",
+        },
+        { status: 400 },
+      );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Generate safe unique file name
-    const timestamp = Date.now();
-    const safeFileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-
-    // Upload to Supabase Storage 'evidence-uploads' bucket
-    const { data, error } = await supabase.storage
-      .from("evidence-uploads")
-      .upload(safeFileName, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (error) {
-      console.error("Supabase storage error:", error);
-      throw new Error(`Failed to upload to storage: ${error.message}`);
-    }
-
-    // Get the public URL for the uploaded file
-    const { data: { publicUrl } } = supabase.storage
-      .from("evidence-uploads")
-      .getPublicUrl(safeFileName);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const contentType = file.type || "application/octet-stream";
+    const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
 
     return NextResponse.json({
       success: true,
-      fileUrl: publicUrl,
+      fileUrl: dataUrl,
       fileName: file.name,
-      fileType: file.type,
+      fileType: contentType,
       fileSize: file.size,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error uploading file:", error);
-    return NextResponse.json({ error: error.message || "Failed to upload file" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to upload file" },
+      { status: 500 },
+    );
   }
 }
-

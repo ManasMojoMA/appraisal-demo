@@ -11,7 +11,7 @@ import {
   LogOut,
   History,
 } from "lucide-react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/faculty/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,10 +21,7 @@ const navItems = [
 
 export function FacultySidebar() {
   const pathname = usePathname();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
 
   const [email, setEmail] = useState<string>("");
 

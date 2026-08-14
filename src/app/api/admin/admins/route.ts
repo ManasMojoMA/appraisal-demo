@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
-import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { writeAuditLog } from "@/lib/audit-logger";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+import { createAuthUser } from "@/lib/firebase-auth";
+import { demoBlock } from "@/lib/demo-guard";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,25 +27,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. Verify current user is super_admin
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options)
-              );
-            } catch {}
-          },
-        },
-      }
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -69,6 +45,9 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    const blocked = demoBlock("Creating admin accounts");
+    if (blocked) return blocked;
 
     // 2. Parse and validate request body
     const body = await request.json();
@@ -106,39 +85,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Create or recover user in Supabase Auth
+    // 4. Provision the Firebase auth account
     let authUserId: string;
-
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: email.toLowerCase(),
-        password,
-        email_confirm: true,
-      });
-
-    if (authError) {
-      if (authError.message.includes("already been registered")) {
-        // Recover orphaned user
-        const result: any[] = await prisma.$queryRaw`SELECT id FROM auth.users WHERE email = ${email.toLowerCase()}`;
-        if (result && result.length > 0) {
-          authUserId = result[0].id;
-          // Update password for the recovered user so the admin can log in
-          await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
-        } else {
-          return NextResponse.json(
-            { error: "Auth user conflict but unable to recover ID." },
-            { status: 400 }
-          );
-        }
-      } else {
-        console.error("Supabase Auth error:", authError);
+    try {
+      const created = await createAuthUser(email.toLowerCase(), password);
+      authUserId = created.id;
+    } catch (e) {
+      // An address already in Firebase but absent from Prisma is a half-finished
+      // earlier attempt. Without a service account there is no way to look up
+      // that uid, so say so plainly rather than writing a row that can never
+      // sign in.
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("EMAIL_EXISTS")) {
         return NextResponse.json(
-          { error: authError.message || "Failed to create auth user" },
-          { status: 400 }
+          {
+            error:
+              "That email already has an auth account. Remove it in the Firebase console, then try again.",
+          },
+          { status: 409 }
         );
       }
-    } else {
-      authUserId = authData.user.id;
+      return NextResponse.json(
+        { error: "Failed to create the auth account" },
+        { status: 400 }
+      );
     }
 
     // 5. Create user in Prisma
